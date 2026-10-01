@@ -1,0 +1,998 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<base target="_top">
+<title>Monitoring Dokumen Area & OPD</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#f3f5f8;--surface:#fff;--surface2:#f6f8fa;--line:#dbe2ea;--text:#1e2a38;--muted:#5a6a7b;--head:#10243a;
+        --thbg:#eaeff4;--thtx:#2f4257;--hover:#eef4f9;--input:#fff;--inputline:#c9d2dc;
+        --ok:#1e7a4c;--bad:#b0362b;--warn:#a86a0a;--idle:#5f6b7a;--accent:#0d5c8a;--shadow:rgba(16,36,58,.35);
+        --side:#0f2740;--sidetx:#b9c9da;--sideline:rgba(255,255,255,.1);--sideact:rgba(255,255,255,.12)}
+  html[data-theme=dark]{--bg:#0d151d;--surface:#15202b;--surface2:#1a2734;--line:#28384a;--text:#e3eaf2;--muted:#95a6b8;--head:#eef3f8;
+        --thbg:#1c2a38;--thtx:#b7c7d8;--hover:#1b2937;--input:#0f1821;--inputline:#33465a;
+        --ok:#4cc38a;--bad:#f0776b;--warn:#e3a94b;--idle:#8b98a8;--accent:#5ab0e6;--shadow:rgba(0,0,0,.6);
+        --side:#0a131c;--sidetx:#9fb1c3;--sideline:rgba(255,255,255,.07);--sideact:rgba(255,255,255,.09)}
+  html{color-scheme:light}html[data-theme=dark]{color-scheme:dark}
+  body{font-family:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.5}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  /* Kerangka */
+  .sidebar{position:fixed;inset:0 auto 0 0;width:252px;background:var(--side);color:var(--sidetx);display:flex;flex-direction:column;z-index:40;overflow-y:auto}
+  .main{margin-left:252px;min-height:100vh}
+  .content{padding:22px 28px 40px;max-width:1280px}
+  .overlay{display:none}
+  .brand{display:flex;gap:11px;align-items:center;padding:20px 18px 18px;border-bottom:1px solid var(--sideline)}
+  .brand .mark{width:34px;height:34px;border-radius:8px;background:#e8f0f8;color:#0f2740;display:grid;place-items:center;flex:none}
+  .brand b{display:block;color:#fff;font-weight:600;font-size:14.5px;line-height:1.25}
+  .brand small{font-size:11.5px;color:#8ea3b8}
+  .sidebar nav{padding:14px 10px;flex:1}
+  .nav-label{font-size:11.5px;color:#7f95ab;padding:14px 10px 6px;font-weight:500}
+  .sidebar .nav-item{width:100%;text-align:left;gap:11px;align-items:center;padding:9px 12px;margin:2px 0;border-radius:7px;font-size:13.5px;font-weight:500;color:var(--sidetx);background:transparent;border:0;cursor:pointer;position:relative;transition:background .15s,color .15s}
+  .sidebar .nav-item:not(.hidden){display:flex}
+  .sidebar .nav-item:hover{background:var(--sideact);color:#fff}
+  .sidebar .nav-item.active{background:var(--sideact);color:#fff}
+  .sidebar .nav-item.active::before{content:"";position:absolute;left:-10px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:#5ab0e6}
+  .sidebar .nav-item input[type=checkbox]{margin-right:2px}
+  .ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+  .side-foot{padding:14px 14px 16px;border-top:1px solid var(--sideline);display:flex;flex-direction:column;gap:8px}
+  .side-foot select{background:rgba(255,255,255,.06);color:#fff;border:1px solid rgba(255,255,255,.2);border-radius:7px;padding:8px 10px;font-size:13px}
+  .side-foot select option{color:#111;background:#fff}
+  .side-foot .ver{font-size:11px;color:#6f8499}
+  .topbar{position:sticky;top:0;z-index:30;background:var(--surface);border-bottom:1px solid var(--line);padding:12px 28px;display:flex;align-items:center;gap:14px}
+  .topbar h1{font-size:16px;font-weight:600;color:var(--head);line-height:1.3}
+  .topbar #subjudul{font-size:12px;color:var(--muted)}
+  .topbar .grow{flex:1;min-width:0}
+  #globalSearchWrap{width:min(420px,100%);margin:0}
+  .hamburger{display:none;background:transparent;border:1px solid var(--line);border-radius:7px;padding:7px;color:var(--text);cursor:pointer}
+  .viewhead{font-size:18px;font-weight:600;color:var(--head);margin:0 0 14px}
+
+  /* Pencarian */
+  #globalSearch{background:var(--input);color:var(--text);border:1px solid var(--inputline);border-radius:8px;padding:9px 13px;font-size:13.5px;width:100%}
+  #globalSearch:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(13,92,138,.18);outline:none}
+  #globalSearchResults{border-color:var(--line);border-radius:8px;box-shadow:0 10px 30px var(--shadow)}
+
+  /* Panel & Tailwind -> tema */
+  body .rounded-xl{border-radius:10px;border-color:var(--line);box-shadow:none}
+  body .rounded-xl h2,body .rounded-xl h3{font-weight:600;color:var(--head)}
+  body .bg-white{background:var(--surface)}
+  body .bg-slate-100{background:var(--thbg)}
+  body .bg-slate-50,body .hover\:bg-slate-50:hover{background:var(--surface2)}
+  body .border,body .border-b{border-color:var(--line)}
+  body .text-slate-400,body .text-slate-500,body .text-slate-600{color:var(--muted)}
+  body .text-emerald-600{color:var(--ok)}
+  body .bg-amber-50{background:rgba(227,169,75,.14);color:var(--warn)}
+  body input,body select,body textarea{background:var(--input);color:var(--text);border-color:var(--inputline)}
+  body a{color:var(--accent)}
+
+  /* KPI */
+  .kpi-band{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:16px}
+  .kpi{padding:14px 16px 13px;border-left:1px solid var(--line);position:relative;--c:var(--accent)}
+  .kpi:first-child{border-left:0}
+  .kpi::before{content:"";position:absolute;left:0;right:0;top:0;height:3px;background:var(--c)}
+  .kpi.s1{--c:var(--ok)}.kpi.s2{--c:var(--bad)}.kpi.s3{--c:var(--warn)}.kpi.s4,.kpi.s0{--c:var(--idle)}
+  .kpi .lbl{font-size:12.5px;color:var(--muted)}
+  .kpi .val{font-size:30px;font-weight:600;line-height:1.15;font-variant-numeric:tabular-nums;color:var(--head)}
+  .kpi .sub{font-size:12px;color:var(--muted)}
+  .bar{height:6px;border-radius:999px;background:var(--thbg);overflow:hidden}
+  .bar>div{height:100%;background:var(--ok);border-radius:999px}
+  .dgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .brow{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) 54px;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .brow:last-child{border-bottom:0}
+  .brow:hover .bl{color:var(--accent)}
+  .brow .bl{font-size:13px;line-height:1.35}
+  .brow .bp{font-size:13px;text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+  .stack{display:flex;height:8px;border-radius:999px;overflow:hidden;background:var(--thbg)}
+  .stack i{display:block;height:100%}
+  .stack i.s1{background:var(--ok)}.stack i.s2{background:var(--bad)}.stack i.s3{background:var(--warn)}.stack i.s4,.stack i.s0{background:var(--idle)}
+
+  /* Tabel */
+  .scrollx{overflow-x:auto}
+  table{border-collapse:separate;border-spacing:0;width:100%}
+  th{position:sticky;top:0;background:var(--thbg);color:var(--thtx);font-weight:600;font-size:12.5px;text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap}
+  td{padding:9px 12px;border-bottom:1px solid var(--line);font-size:13.5px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  td.wrap{white-space:normal;max-width:340px}
+  #tblArea th:not(:first-child),#tblOpd th:not(:first-child),#tblArea td:not(:first-child),#tblOpd td:not(:first-child){text-align:center}
+  tr:hover td{background:var(--hover)}
+  tr.font-bold td{background:var(--thbg);border-top:2px solid var(--inputline);color:var(--head)}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px}
+  .dot.s1{background:var(--ok)}.dot.s2{background:var(--bad)}.dot.s3{background:var(--warn)}.dot.s4,.dot.s0{background:var(--idle)}
+  .badge{display:inline-block;padding:2px 10px;border-radius:999px;font-size:12px;font-weight:500;border:1px solid}
+  .badge.s1{color:#166a41;background:#e7f4ec;border-color:#bfe0cc}
+  .badge.s2{color:#9b2c22;background:#fbecea;border-color:#f0c5c0}
+  .badge.s3{color:#8a5608;background:#fdf3e1;border-color:#ecd3a3}
+  .badge.s4,.badge.s0{color:#4b5766;background:#eef1f4;border-color:#d5dbe2}
+  html[data-theme=dark] .badge.s1{color:#7fdcae;background:rgba(76,195,138,.12);border-color:rgba(76,195,138,.35)}
+  html[data-theme=dark] .badge.s2{color:#f5a29a;background:rgba(240,119,107,.12);border-color:rgba(240,119,107,.35)}
+  html[data-theme=dark] .badge.s3{color:#efc478;background:rgba(227,169,75,.12);border-color:rgba(227,169,75,.35)}
+  html[data-theme=dark] .badge.s4,html[data-theme=dark] .badge.s0{color:#b3bfcc;background:rgba(139,152,168,.12);border-color:rgba(139,152,168,.3)}
+
+  /* Modal */
+  .modal{position:fixed;inset:0;background:rgba(8,18,30,.6);display:none;align-items:center;justify-content:center;z-index:60;padding:16px}
+  .modal.show{display:flex}
+  .modalbox{background:var(--surface);color:var(--text);border-radius:10px;max-width:900px;width:100%;max-height:88vh;overflow:auto;padding:22px;box-shadow:0 24px 60px var(--shadow)}
+  .modalbox h3,.modalbox h4{color:var(--head)}
+  .modalbox button{border-radius:6px;font-weight:500;font-size:13.5px}
+  .modalbox button.bg-indigo-600{background:var(--accent);color:#fff}
+  .modalbox button.bg-emerald-600{background:var(--ok);color:#fff}
+  .modalbox input:focus,.modalbox select:focus,.modalbox textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(13,92,138,.18);outline:none}
+  #emptyState{padding:56px 24px;color:var(--muted);line-height:1.7}
+
+  @media (max-width:900px){
+    .sidebar{transform:translateX(-100%);transition:transform .22s ease;box-shadow:none}
+    .sidebar.open{transform:none;box-shadow:0 0 40px rgba(0,0,0,.5)}
+    .overlay.open{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:35}
+    .main{margin-left:0}
+    .content{padding:16px 14px 32px}
+    .topbar{padding:10px 14px;flex-wrap:wrap}
+    .hamburger{display:block}
+    #globalSearchWrap{order:3;width:100%}
+    .dgrid{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="overlay" id="overlay" onclick="closeSidebar()"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="brand">
+    <div class="mark"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13l2 2 3-4"/></svg></div>
+    <div><b>Monitoring Dokumen</b><small>Area &amp; OPD Pengampu</small></div>
+  </div>
+  <nav>
+    <div class="nav-label">Menu</div>
+    <button class="nav-item active" data-view="dashboard" onclick="showView('dashboard')"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg><span>Dashboard</span></button>
+    <button class="nav-item" data-view="area" onclick="showView('area')"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg><span>Rekap Area</span></button>
+    <button class="nav-item" data-view="opd" onclick="showView('opd')"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M9 8h2M13 8h2M9 12h2M13 12h2M10 21v-4h4v4"/></svg><span>Rekap OPD Pengampu</span></button>
+    <button id="btnAudit" class="nav-item admin-only hidden" data-view="audit" onclick="showView('audit')"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span>Riwayat (<b id="auditCount">0</b>)</span></button>
+
+    <div class="nav-label">Data</div>
+    <button id="btnRefresh" class="nav-item hidden" onclick="reloadFromSource()"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 00-14.9-3M4 5v4h4"/><path d="M4 13a8 8 0 0014.9 3M20 19v-4h-4"/></svg><span>Sinkronkan</span></button>
+    <div id="syncInfo" class="hidden" style="padding:2px 12px 8px;font-size:11px;color:#7f95ab;line-height:1.5"></div>
+    <label id="autoSyncWrap" class="nav-item hidden"><input type="checkbox" id="autoSyncChk" onchange="toggleAutoSync()"><span>Auto Sync</span></label>
+
+    <div class="nav-label">Keluaran</div>
+    <button id="btnDownload" class="nav-item hidden" onclick="downloadWorkbook()"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M8 11l4 4 4-4M5 20h14"/></svg><span>Unduh Excel</span></button>
+    <button id="btnExport" class="nav-item hidden" onclick="openExportModal()"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 9V4h10v5M7 17H5a1 1 0 01-1-1v-5a2 2 0 012-2h12a2 2 0 012 2v5a1 1 0 01-1 1h-2"/><rect x="7" y="14" width="10" height="6"/></svg><span>Ekspor PDF</span></button>
+  </nav>
+  <div class="side-foot">
+    <select id="roleSelect" onchange="applyRole()" aria-label="Peran pengguna">
+      <option value="admin">Peran: Admin</option>
+      <option value="operator">Peran: Operator</option>
+    </select>
+    <button class="nav-item" id="themeBtn" onclick="toggleTheme()"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 019.5 4 8 8 0 1020 14.5z"/></svg><span id="themeLabel">Mode gelap</span></button>
+    <div class="ver" id="whoami">v2.0 · Apps Script</div>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <button class="hamburger" onclick="toggleSidebar()" aria-label="Buka menu"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div class="grow"><h1 id="judul">Monitoring Dokumen Area &amp; OPD</h1><p id="subjudul">Masuk untuk memuat data dari Google Drive.</p></div>
+    <div id="globalSearchWrap" class="hidden relative">
+      <input id="globalSearch" placeholder="Cari No, dokumen, OPD, Area, Status, Keterangan" oninput="renderGlobalSearch()">
+      <div id="globalSearchResults" class="hidden absolute z-40 bg-white border rounded-lg shadow-lg mt-1 w-full max-h-80 overflow-auto"></div>
+    </div>
+  </header>
+
+  <div class="content">
+    <div id="syncBanner" class="hidden bg-amber-50 border border-amber-300 text-sm rounded-lg p-3 mb-4 flex justify-between items-center">
+      <span>Excel MASTER di Google Drive telah berubah sejak terakhir dimuat.</span>
+      <div class="flex gap-2">
+        <button onclick="fetchFromDrive()" class="bg-amber-600 text-white px-3 py-1 rounded-lg text-xs">Muat Ulang</button>
+        <button onclick="document.getElementById('syncBanner').classList.add('hidden')" class="px-3 py-1 rounded-lg text-xs border border-amber-400">Nanti</button>
+      </div>
+    </div>
+
+    <div id="emptyState" class="bg-white rounded-xl border text-center">
+      Data dimuat dari Google Drive setelah Anda masuk.
+    </div>
+
+    <div id="app" class="hidden">
+      <section id="view-dashboard">
+        <h2 class="viewhead">Dashboard</h2>
+        <div class="kpi-band" id="cards"></div>
+        <div class="bg-white rounded-xl border p-4 mb-4">
+          <div class="flex justify-between items-center mb-2">
+            <h3>Progres penyelesaian keseluruhan</h3>
+            <span id="pctText" class="text-sm font-semibold text-emerald-600"></span>
+          </div>
+          <div class="bar"><div id="pctBar" style="width:0%"></div></div>
+        </div>
+        <div class="dgrid">
+          <div class="bg-white rounded-xl border p-4"><h3 class="mb-2">Progres per Area</h3><div id="areaBars"></div></div>
+          <div class="bg-white rounded-xl border p-4"><h3 class="mb-2">Beban dokumen terbesar (5 OPD)</h3><div id="topOpd"></div></div>
+        </div>
+      </section>
+
+      <section id="tab-area" class="hidden">
+        <h2 class="viewhead">Rekapitulasi per Area</h2>
+        <div class="bg-white rounded-xl border p-4 scrollx"><table id="tblArea"></table></div>
+      </section>
+
+      <section id="tab-opd" class="hidden">
+        <h2 class="viewhead">Rekapitulasi per OPD Pengampu</h2>
+        <div class="bg-white rounded-xl border p-4">
+          <div class="flex flex-wrap gap-2 items-center justify-between mb-3">
+            <span class="text-sm text-slate-500">Diurutkan berdasarkan beban dokumen. Klik baris untuk melihat detail.</span>
+            <div class="flex gap-2">
+              <input id="searchOpd" placeholder="Cari OPD" class="border rounded-lg px-3 py-1.5 text-sm" oninput="renderOpd()">
+              <select id="sortOpd" class="border rounded-lg px-2 py-1.5 text-sm" onchange="renderOpd()">
+                <option value="total_desc">Total terbesar → terkecil</option>
+                <option value="total_asc">Total terkecil → terbesar</option>
+                <option value="name_asc">Nama OPD A-Z</option>
+                <option value="name_desc">Nama OPD Z-A</option>
+                <option value="pct_desc">% Selesai terbesar → terkecil</option>
+                <option value="pct_asc">% Selesai terkecil → terbesar</option>
+              </select>
+            </div>
+          </div>
+          <div class="scrollx"><table id="tblOpd"></table></div>
+        </div>
+      </section>
+
+      <section id="auditPanel" class="hidden">
+        <h2 class="viewhead">Riwayat perubahan</h2>
+        <div class="bg-white rounded-xl border p-4 scrollx"><table id="tblAudit"></table></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL MODAL -->
+<div class="modal" id="detailModal">
+  <div class="modalbox">
+    <div class="flex justify-between items-center mb-3">
+      <h3 class="font-bold text-lg" id="detailTitle"></h3>
+      <button onclick="document.getElementById('detailModal').classList.remove('show'); lastDetailOpen=null;" class="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+    </div>
+    <div id="detailStats" class="grid grid-cols-3 md:grid-cols-6 gap-2 mb-4 text-sm"></div>
+    <div class="scrollx"><table id="tblDetail"></table></div>
+  </div>
+</div>
+
+<!-- UPDATE DOKUMEN MODAL -->
+<div class="modal" id="updateModal">
+  <div class="modalbox max-w-lg">
+    <div class="flex justify-between items-center mb-3">
+      <h3 class="font-semibold text-lg">Perbarui dokumen</h3>
+      <button onclick="closeUpdateModal()" class="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+    </div>
+    <div id="updFormView" class="space-y-2 text-sm">
+      <div><span class="text-slate-500">Area:</span> <b id="updArea"></b></div>
+      <div><span class="text-slate-500">OPD Pengampu:</span> <b id="updOpd"></b></div>
+      <div><span class="text-slate-500">No:</span> <b id="updNo"></b></div>
+      <div><span class="text-slate-500">Dokumen Bukti Dukung:</span> <b id="updDok"></b></div>
+      <div><span class="text-slate-500">Status Saat Ini:</span> <b id="updStatusLama"></b></div>
+      <label class="block mt-2">Status Baru (opsional)</label>
+      <select id="updStatusBaru" class="border rounded-lg px-3 py-2 w-full"></select>
+      <div class="mt-2"><span class="text-slate-500">Keterangan Saat Ini:</span><div id="updKetLama" class="bg-slate-50 border rounded-lg p-2 mt-1 whitespace-pre-wrap"></div></div>
+      <label class="block mt-2">Keterangan Baru (opsional, kosongkan untuk menghapus)</label>
+      <textarea id="updKetBaru" rows="4" class="border rounded-lg px-3 py-2 w-full"></textarea>
+      <div class="flex gap-2 justify-end pt-2">
+        <button onclick="closeUpdateModal()" class="px-4 py-2 rounded-lg border">BATAL</button>
+        <button onclick="showConfirm()" class="px-4 py-2 rounded-lg bg-indigo-600 text-white">SIMPAN PERUBAHAN</button>
+      </div>
+    </div>
+    <div id="updConfirmView" class="hidden space-y-2 text-sm">
+      <h4 class="font-semibold">KONFIRMASI PERUBAHAN</h4>
+      <div id="confirmBody" class="space-y-1"></div>
+      <div class="flex gap-2 justify-end pt-2">
+        <button onclick="backToForm()" class="px-4 py-2 rounded-lg border">BATAL</button>
+        <button onclick="saveChange()" class="px-4 py-2 rounded-lg bg-emerald-600 text-white">KONFIRMASI & SIMPAN</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EXPORT PDF MODAL -->
+<div class="modal" id="exportModal">
+  <div class="modalbox max-w-4xl">
+    <div class="flex justify-between items-center mb-3">
+      <h3 class="font-bold text-lg">Export PDF</h3>
+      <button onclick="document.getElementById('exportModal').classList.remove('show')" class="text-slate-400 hover:text-slate-700 text-xl">✕</button>
+    </div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3 text-sm">
+      <div>
+        <label class="block text-slate-500 mb-1">Cakupan</label>
+        <select id="expScope" class="border rounded-lg px-2 py-1.5 w-full" onchange="previewExport()">
+          <option value="rekapOpd">Rekap OPD Pengampu</option>
+          <option value="rekapArea">Rekap Area</option>
+          <option value="dashboard">Dashboard</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-slate-500 mb-1">Area</label>
+        <select id="expArea" class="border rounded-lg px-2 py-1.5 w-full" onchange="previewExport()"></select>
+      </div>
+      <div>
+        <label class="block text-slate-500 mb-1">OPD</label>
+        <select id="expOpd" class="border rounded-lg px-2 py-1.5 w-full" onchange="previewExport()"></select>
+      </div>
+      <div>
+        <label class="block text-slate-500 mb-1">Status</label>
+        <select id="expStatus" class="border rounded-lg px-2 py-1.5 w-full" onchange="previewExport()"></select>
+      </div>
+    </div>
+    <label class="flex items-center gap-2 text-sm mb-3">
+      <input type="checkbox" id="expIncludeKet" onchange="previewExport()"> Sertakan detail dokumen &amp; Keterangan
+    </label>
+    <div class="border rounded-lg p-3 mb-3">
+      <div class="text-xs font-semibold text-slate-500 mb-2">PREVIEW EXPORT</div>
+      <div id="exportPreview" class="scrollx max-h-72 overflow-auto"></div>
+    </div>
+    <div class="flex gap-2 justify-end">
+      <button onclick="document.getElementById('exportModal').classList.remove('show')" class="px-4 py-2 rounded-lg border">BATAL</button>
+      <button onclick="previewExport()" class="px-4 py-2 rounded-lg border">UBAH FILTER</button>
+      <button onclick="doExportPDF()" class="px-4 py-2 rounded-lg bg-rose-600 text-white">EXPORT PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFLICT MODAL -->
+<div class="modal" id="conflictModal">
+  <div class="modalbox max-w-lg">
+    <h3 class="font-bold text-lg text-amber-700 mb-3">⚠️ PERUBAHAN KONFLIK TERDETEKSI</h3>
+    <p class="text-sm text-slate-600 mb-3">Dokumen ini sudah diubah oleh pengguna lain sejak Anda memuatnya. Jika Anda menimpa sekarang, perubahan mereka akan hilang.</p>
+    <p class="text-sm mb-4"><b>Nilai terbaru di Drive:</b> <span id="conflictTime"></span></p>
+    <div class="flex flex-col gap-2">
+      <button onclick="resolveConflict('reload')" class="px-4 py-2 rounded-lg border">Gunakan data terbaru (batalkan perubahan saya)</button>
+      <button onclick="resolveConflict('overwrite')" class="px-4 py-2 rounded-lg bg-rose-600 text-white">Gunakan Perubahan Saya (timpa Drive)</button>
+      <button onclick="resolveConflict('cancel')" class="px-4 py-2 rounded-lg border">Batalkan</button>
+    </div>
+  </div>
+</div>
+
+<!-- LOGIN MODAL -->
+<div class="modal show" id="loginModal">
+  <div class="modalbox" style="max-width:400px">
+    <h3 class="font-semibold text-lg mb-1">Masuk</h3>
+    <p class="text-sm text-slate-500 mb-4">Monitoring Dokumen Area &amp; OPD Pengampu</p>
+    <label class="block text-sm mb-1">Nama pengguna</label>
+    <input id="loginName" class="border rounded-lg px-3 py-2 text-sm w-full mb-3" placeholder="Nama Anda (dicatat di riwayat)" autocomplete="name">
+    <label class="block text-sm mb-1">Kode akses</label>
+    <input id="loginCode" type="password" class="border rounded-lg px-3 py-2 text-sm w-full mb-3" placeholder="Kode dari administrator" onkeydown="if(event.key==='Enter')doLogin()">
+    <button id="loginBtn" onclick="doLogin()" class="bg-indigo-600 text-white text-sm font-medium px-4 py-2 rounded-lg w-full">Masuk</button>
+    <p id="loginErr" class="text-sm mt-2" style="color:var(--bad)"></p>
+  </div>
+</div>
+
+<script>
+let currentRole = 'admin';
+function applyRole(){
+  currentRole = document.getElementById('roleSelect').value;
+  const hide = currentRole === 'operator';
+  document.querySelectorAll('.admin-only').forEach(el=>{
+    if(hide) el.classList.add('hidden'); else if(el.id!=='btnAudit' || WB) el.classList.remove('hidden');
+  });
+  if(hide && !document.getElementById('auditPanel').classList.contains('hidden')) showView('dashboard');
+}
+document.addEventListener('DOMContentLoaded', applyRole);
+
+let WB = null;          // workbook object (SheetJS)
+let AREA_ROWS = [];     // computed area-summary rows
+let FLAT_OPD_ROWS = []; // parsed 'Rekap OPD' flat per-document rows (source of truth in-app)
+let OPD_SUMMARY = [];
+let STATUS_ORDER = [];  // e.g. ['1. Diterima','2. Ditolak Perbaikan',...]
+let AUDIT = [];
+let source = 'lokal';
+let currentEditRow = null; // index into FLAT_OPD_ROWS being edited
+let pendingChange = null;
+
+
+function findHeaderRow(rows, mustHave){
+  for(let i=0;i<Math.min(rows.length,15);i++){
+    const norm = (rows[i]||[]).map(c=>String(c||'').trim().toLowerCase());
+    const used = new Set(); let ok = true;
+    for(const k of mustHave){
+      let found = -1;
+      for(let ci=0; ci<norm.length; ci++){
+        if(used.has(ci)) continue;
+        if(norm[ci]===k || (norm[ci].includes(k) && norm[ci].length <= k.length+15)){ found=ci; break; }
+      }
+      if(found===-1){ ok=false; break; }
+      used.add(found);
+    }
+    if(ok) return i;
+  }
+  return -1;
+}
+function colIndex(headerRow, name){
+  let best=-1;
+  headerRow.forEach((c,i)=>{
+    const t = String(c||'').trim().toLowerCase();
+    if(best===-1 && (t===name || (t.includes(name) && t.length<=name.length+15))) best=i;
+  });
+  return best;
+}
+function statusNum(s){ const m = String(s||'').match(/^(\d+)\./); return m?parseInt(m[1]):999; }
+
+
+const DEFAULT_STATUSES = ['1. Diterima','2. Ditolak Perbaikan','3. Proses Verifikasi KPK','4. Belum diupload'];
+function readValidationStatuses(){
+  try{
+    const files = WB.files || {};
+    for(const path of Object.keys(files)){
+      if(!/xl\/worksheets\/sheet\d+\.xml$/i.test(path)) continue;
+      const f = files[path]; let c = f && (f.content || (f.asUint8Array && f.asUint8Array()));
+      if(!c) continue;
+      const xml = typeof c==='string' ? c : new TextDecoder().decode(c);
+      const re = /<dataValidation[^>]*type="list"[^>]*>\s*<formula1>([^<]*)<\/formula1>/g; let m;
+      while((m = re.exec(xml))){
+        const items = m[1].replace(/&quot;/g,'"').replace(/&amp;/g,'&').replace(/^"|"$/g,'').split(',').map(s=>s.trim()).filter(Boolean);
+        if(items.length>1 && items.every(s=>/^\d+\./.test(s))) return items;
+      }
+    }
+  }catch(e){}
+  return null;
+}
+function rebuildStatusOrder(){
+  const set = new Set(DEFAULT_STATUSES);
+  (readValidationStatuses()||[]).forEach(s=>set.add(s));
+  FLAT_OPD_ROWS.forEach(r=>{ if(r.status) set.add(r.status); });
+  STATUS_ORDER = [...set].sort((a,b)=>statusNum(a)-statusNum(b));
+}
+function loadWorkbook(data){
+  WB = XLSX.read(data, {type:'array', cellDates:false, bookFiles:true});
+  AUDIT = [];
+  parseAll();
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('app').classList.remove('hidden');
+  ['btnRefresh','btnDownload','btnAudit','btnExport'].forEach(id=>document.getElementById(id).classList.remove('hidden'));
+  document.getElementById('globalSearchWrap').classList.remove('hidden');
+  applyRole();
+  showView('dashboard');
+}
+
+// Beberapa file menaruh ringkasan status di bagian bawah sheet Area ("RINGKASAN STATUS DOKUMEN" /
+// "REKAPITULASI STATUS DOKUMEN"). Baris itu bukan data dokumen dan harus dihentikan sebelum baris itu.
+function findSummaryBoundary_(rows, fromIdx){
+  for(let i=fromIdx;i<rows.length;i++){
+    const joined = (rows[i]||[]).map(v=>String(v||'')).join(' ').toLowerCase();
+    if(/ringkasan status dokumen|rekapitulasi status dokumen/.test(joined)) return i;
+  }
+  return rows.length;
+}
+function areaSheetNames_(){
+  return WB.SheetNames.filter(n=>/^area\s*\d+/i.test(n.trim()))
+    .sort((a,b)=>(parseInt((a.match(/\d+/)||['0'])[0],10) - parseInt((b.match(/\d+/)||['0'])[0],10)));
+}
+
+function parseAll(){
+  const shDash = WB.Sheets[WB.SheetNames.find(n=>n.toLowerCase().includes('dashboard'))];
+  const rowsDash = XLSX.utils.sheet_to_json(shDash, {header:1, defval:''});
+  document.getElementById('judul').textContent = rowsDash[1]?.[1] || 'Monitoring Dokumen Area & OPD';
+  document.getElementById('subjudul').textContent = (rowsDash[2]?.[1]||'') + '  |  ' + (rowsDash[3]?.[1]||'');
+
+  // --- Sumber tampilan: gabungan seluruh sheet "Area N" (No, Dokumen, OPD Pengampu, Status, Keterangan). ---
+  FLAT_OPD_ROWS = [];
+  areaSheetNames_().forEach(sn=>{
+    const ws = WB.Sheets[sn];
+    const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+    const areaTitle = String((rows[0]&&rows[0][0])||'').trim() || sn;
+    const hidx = findHeaderRow(rows, ['no','status']);
+    if(hidx<0) return;
+    const header = rows[hidx].map(c=>String(c||'').trim());
+    const cNo=colIndex(header,'no'), cDok=colIndex(header,'dokumen'), cOpd=colIndex(header,'opd'),
+          cStat=colIndex(header,'status'), cKet=colIndex(header,'keterangan');
+    if(cNo<0 || cOpd<0 || cStat<0) return;
+    const stop = findSummaryBoundary_(rows, hidx+1);
+    for(let i=hidx+1;i<stop;i++){
+      const row = rows[i];
+      if(!row || row[cNo]==='' || row[cNo]==null || !row[cOpd]) continue;
+      FLAT_OPD_ROWS.push({idx:FLAT_OPD_ROWS.length, opd:row[cOpd], area:areaTitle, no:row[cNo], dok:row[cDok], status:row[cStat], ket:row[cKet]});
+    }
+  });
+  rebuildStatusOrder();
+  refreshAll();
+}
+
+function refreshAll(){
+  computeAreaFromFlat();
+  renderCards();
+  buildOpdSummary();
+  renderArea();
+  renderOpd();
+  renderDashExtras();
+}
+
+function computeAreaFromFlat(){
+  const map = {};
+  FLAT_OPD_ROWS.forEach(r=>{
+    if(!map[r.area]) map[r.area] = {key:r.area, total:0, statusCount:{}};
+    map[r.area].total++;
+    map[r.area].statusCount[r.status] = (map[r.area].statusCount[r.status]||0)+1;
+  });
+  AREA_ROWS = Object.values(map).map(a=>{
+    const diterima = a.statusCount[STATUS_ORDER.find(s=>statusNum(s)===1)] || 0;
+    return {...a, pct: a.total? diterima/a.total*100 : 0};
+  });
+}
+
+function stKey(s){const n=statusNum(s);return (n>=1&&n<=4)?'s'+n:'s0';}
+function badge(s){return s?`<span class="badge ${stKey(s)}">${s}</span>`:'';}
+function renderCards(){
+  const box = document.getElementById('cards'); box.innerHTML='';
+  const total = FLAT_OPD_ROWS.length;
+  const share = v => total ? (v/total*100).toFixed(1).replace('.',',')+'% dari total' : '';
+  box.insertAdjacentHTML('beforeend', `<div class="kpi"><div class="lbl">Total dokumen bukti dukung</div><div class="val">${total}</div><div class="sub">seluruh Area &amp; OPD</div></div>`);
+  STATUS_ORDER.forEach(s=>{
+    const v = FLAT_OPD_ROWS.filter(r=>r.status===s).length;
+    box.insertAdjacentHTML('beforeend', `<div class="kpi ${stKey(s)}"><div class="lbl">${s}</div><div class="val">${v}</div><div class="sub">${share(v)}</div></div>`);
+  });
+  const diterima = FLAT_OPD_ROWS.filter(r=>statusNum(r.status)===1).length;
+  const pct = total? (diterima/total*100):0;
+  document.getElementById('pctBar').style.width = pct.toFixed(2)+'%';
+  document.getElementById('pctText').textContent = pct.toFixed(2)+'% selesai';
+}
+
+function renderArea(){
+  let head = `<tr><th>Area</th><th>Total</th>`+STATUS_ORDER.map(s=>`<th><i class="dot ${stKey(s)}"></i>${s}</th>`).join('')+`<th>% Selesai</th></tr>`;
+  let body='', totRow={total:0}; STATUS_ORDER.forEach(s=>totRow[s]=0);
+  AREA_ROWS.slice().sort((a,b)=>a.key.localeCompare(b.key)).forEach(a=>{
+    totRow.total+=a.total;
+    const cells = STATUS_ORDER.map(s=>{ const v=a.statusCount[s]||0; totRow[s]+=v; return `<td>${v}</td>`; }).join('');
+    body += `<tr class="cursor-pointer" onclick="openDetail('area','${String(a.key).replace(/'/g,"\\'")}')">
+      <td class="wrap font-medium">${a.key}</td><td>${a.total}</td>${cells}
+      <td><div class="bar w-24 inline-block align-middle"><div style="width:${a.pct.toFixed(1)}%"></div></div> ${a.pct.toFixed(2)}%</td></tr>`;
+  });
+  const totPct = totRow.total? (totRow[STATUS_ORDER.find(s=>statusNum(s)===1)]||0)/totRow.total*100 : 0;
+  body += `<tr class="font-bold bg-slate-100"><td>TOTAL</td><td>${totRow.total}</td>`+STATUS_ORDER.map(s=>`<td>${totRow[s]}</td>`).join('')+`<td>${totPct.toFixed(2)}%</td></tr>`;
+  document.getElementById('tblArea').innerHTML = head+body;
+}
+
+function buildOpdSummary(){
+  const map = {};
+  FLAT_OPD_ROWS.forEach(r=>{
+    if(!map[r.opd]) map[r.opd] = {opd:r.opd, total:0, statusCount:{}};
+    map[r.opd].total++;
+    map[r.opd].statusCount[r.status] = (map[r.opd].statusCount[r.status]||0)+1;
+  });
+  OPD_SUMMARY = Object.values(map).map(o=>{
+    const diterima = o.statusCount[STATUS_ORDER.find(s=>statusNum(s)===1)] || 0;
+    return {...o, diterima, pct: o.total? diterima/o.total*100 : 0};
+  });
+}
+
+function renderOpd(){
+  const q = (document.getElementById('searchOpd').value||'').toLowerCase();
+  const sort = document.getElementById('sortOpd').value;
+  let rows = OPD_SUMMARY.filter(o=>String(o.opd).toLowerCase().includes(q));
+  const cmp = {
+    total_desc:(a,b)=> b.total-a.total || String(a.opd).localeCompare(b.opd),
+    total_asc:(a,b)=> a.total-b.total || String(a.opd).localeCompare(b.opd),
+    name_asc:(a,b)=> String(a.opd).localeCompare(b.opd),
+    name_desc:(a,b)=> String(b.opd).localeCompare(a.opd),
+    pct_desc:(a,b)=> b.pct-a.pct,
+    pct_asc:(a,b)=> a.pct-b.pct,
+  }[sort];
+  rows.sort(cmp);
+
+  let head = `<tr><th>OPD Pengampu</th><th>Total</th>`+STATUS_ORDER.map(s=>`<th><i class="dot ${stKey(s)}"></i>${s}</th>`).join('')+`<th>% Selesai</th></tr>`;
+  let body='', totRow={total:0}; STATUS_ORDER.forEach(s=>totRow[s]=0);
+  rows.forEach(o=>{
+    totRow.total+=o.total;
+    const cells = STATUS_ORDER.map(s=>{ const v=o.statusCount[s]||0; totRow[s]+=v; return `<td>${v}</td>`; }).join('');
+    body += `<tr class="cursor-pointer" onclick="openDetail('opd','${String(o.opd).replace(/'/g,"\\'")}')">
+      <td class="wrap font-medium">${o.opd}</td><td>${o.total}</td>${cells}
+      <td><div class="bar w-24 inline-block align-middle"><div style="width:${o.pct.toFixed(1)}%"></div></div> ${o.pct.toFixed(2)}%</td></tr>`;
+  });
+  const totPct = totRow.total? (totRow[STATUS_ORDER.find(s=>statusNum(s)===1)]||0)/totRow.total*100 : 0;
+  body += `<tr class="font-bold bg-slate-100"><td>TOTAL</td><td>${totRow.total}</td>`+STATUS_ORDER.map(s=>`<td>${totRow[s]}</td>`).join('')+`<td>${totPct.toFixed(2)}%</td></tr>`;
+  document.getElementById('tblOpd').innerHTML = head+body;
+}
+
+function cmpNo(a,b){
+  const ta=String(a.no==null?'':a.no).match(/\d+/g)||[], tb=String(b.no==null?'':b.no).match(/\d+/g)||[];
+  for(let i=0;i<Math.max(ta.length,tb.length);i++){
+    if(ta[i]===undefined) return -1;
+    if(tb[i]===undefined) return 1;
+    const d=parseInt(ta[i],10)-parseInt(tb[i],10);
+    if(d) return d;
+  }
+  return String(a.area).localeCompare(String(b.area)) || String(a.opd).localeCompare(String(b.opd));
+}
+let lastDetailOpen = null; // dipakai agar jendela Detail ikut menampilkan data terbaru setelah Update disimpan
+function openDetail(type,key){
+  lastDetailOpen = {type,key};
+  let rows, title;
+  if(type==='opd'){ rows = FLAT_OPD_ROWS.filter(r=>r.opd===key); title = 'Detail OPD: '+key; }
+  else { rows = FLAT_OPD_ROWS.filter(r=>r.area===key); title = 'Detail Area: '+key; }
+  rows = rows.slice().sort(cmpNo);
+  document.getElementById('detailTitle').textContent = title;
+  const byStat = {}; rows.forEach(r=>byStat[r.status]=(byStat[r.status]||0)+1);
+  document.getElementById('detailStats').innerHTML =
+    `<div class="bg-slate-100 rounded-lg p-2 text-center"><b>${rows.length}</b><br>Total</div>` +
+    Object.keys(byStat).sort((a,b)=>statusNum(a)-statusNum(b)).map(s=>`<div class="bg-slate-100 rounded-lg p-2 text-center"><b>${byStat[s]}</b><br>${s}</div>`).join('');
+  let html = `<tr><th>No</th><th>Dokumen Bukti Dukung</th><th>${type==='opd'?'Area':'OPD Pengampu'}</th><th>Status</th><th>Keterangan</th></tr>`;
+  rows.forEach(r=>{
+    html += `<tr class="cursor-pointer" onclick="openUpdateForm(${r.idx})"><td>${r.no}</td><td class="wrap">${r.dok}</td><td class="wrap">${type==='opd'?r.area:r.opd}</td><td>${badge(r.status)}</td><td class="wrap">${r.ket||''}</td></tr>`;
+  });
+  document.getElementById('tblDetail').innerHTML = html;
+  document.getElementById('detailModal').classList.add('show');
+}
+
+// ---------------- UPDATE STATUS / KETERANGAN ----------------
+function openUpdateForm(idx){
+  currentEditRow = idx;
+  const r = FLAT_OPD_ROWS[idx];
+  document.getElementById('updArea').textContent = r.area;
+  document.getElementById('updOpd').textContent = r.opd;
+  document.getElementById('updNo').textContent = r.no;
+  document.getElementById('updDok').textContent = r.dok;
+  document.getElementById('updStatusLama').textContent = r.status;
+  document.getElementById('updKetLama').textContent = r.ket || '(kosong)';
+  const sel = document.getElementById('updStatusBaru');
+  sel.innerHTML = `<option value="">-- Tidak diubah --</option>` + STATUS_ORDER.map(s=>`<option value="${s}" ${s===r.status?'selected':''}>${s}</option>`).join('');
+  document.getElementById('updKetBaru').value = r.ket || '';
+  document.getElementById('updFormView').classList.remove('hidden');
+  document.getElementById('updConfirmView').classList.add('hidden');
+  document.getElementById('updateModal').classList.add('show');
+}
+function closeUpdateModal(){ document.getElementById('updateModal').classList.remove('show'); currentEditRow=null; pendingChange=null; }
+function backToForm(){ document.getElementById('updFormView').classList.remove('hidden'); document.getElementById('updConfirmView').classList.add('hidden'); }
+
+function showConfirm(){
+  const r = FLAT_OPD_ROWS[currentEditRow];
+  const selVal = document.getElementById('updStatusBaru').value;
+  const ketBaru = document.getElementById('updKetBaru').value;
+  const newStatus = selVal || r.status;
+  const statusChanged = selVal && selVal!==r.status;
+  const ketChanged = ketBaru !== (r.ket||'');
+  if(!statusChanged && !ketChanged){ alert('Tidak ada perubahan Status maupun Keterangan.'); return; }
+  pendingChange = {idx:currentEditRow, newStatus, newKet:ketBaru, statusChanged, ketChanged};
+  let body = `<div><span class="text-slate-500">Area:</span> <b>${r.area}</b></div><div><span class="text-slate-500">OPD:</span> <b>${r.opd}</b></div><div><span class="text-slate-500">Dokumen:</span> <b>${r.dok}</b></div>`;
+  if(statusChanged) body += `<div class="mt-2"><span class="text-slate-500">Status:</span><br>${r.status}<br>↓<br><b>${newStatus}</b></div>`;
+  if(ketChanged) body += `<div class="mt-2"><span class="text-slate-500">Keterangan:</span><br>"${r.ket||'(kosong)'}"<br>↓<br><b>"${ketBaru||'(kosong)'}"</b></div>`;
+  document.getElementById('confirmBody').innerHTML = body;
+  document.getElementById('updFormView').classList.add('hidden');
+  document.getElementById('updConfirmView').classList.remove('hidden');
+}
+
+async function saveChange(force){
+  const pc = pendingChange; if(!pc) return;
+  const r = FLAT_OPD_ROWS[pc.idx];
+  const loc = locateAreaRow(r);
+  if(!loc){ alert('✕ Perubahan gagal: baris sumber tidak ditemukan pada sheet Area.'); return; }
+  const entry = {
+    waktu: new Date().toLocaleString('id-ID'), area:r.area, opd:r.opd, no:r.no, dok:r.dok,
+    statusLama:r.status||'', statusBaru: pc.statusChanged?pc.newStatus:(r.status||''),
+    ketLama:r.ket||'', ketBaru: pc.ketChanged?pc.newKet:(r.ket||'')
+  };
+  const payload = {
+    areaSheet: loc.sheet, no:String(r.no), opd:String(r.opd),
+    newStatus: pc.statusChanged?pc.newStatus:null, newKet: pc.ketChanged?pc.newKet:null,
+    oldStatus:r.status||'', oldKet:r.ket||'', force:!!force, audit:entry
+  };
+  let res;
+  try{ res = await gas('saveEdit', SESSION.code, SESSION.name, payload); }
+  catch(e){ alert('✕ Perubahan gagal: '+e.message); return; }
+  if(res.conflict){
+    document.getElementById('conflictTime').textContent = 'Status: '+(res.current.status||'(kosong)')+' | Keterangan: '+(res.current.ket||'(kosong)');
+    document.getElementById('conflictModal').classList.add('show');
+    return;
+  }
+  if(!res.ok){ alert('✕ Perubahan gagal: '+res.error); return; }
+  // Berhasil tersimpan di Drive -> perbarui tampilan
+  applyLocal(loc, pc.statusChanged?pc.newStatus:null, pc.ketChanged?pc.newKet:null);
+  entry.user = SESSION.name; AUDIT.unshift(entry);
+  if(pc.statusChanged) r.status = pc.newStatus;
+  if(pc.ketChanged) r.ket = pc.newKet;
+  lastModified = res.modified;
+  rebuildStatusOrder(); refreshAll(); renderAudit(); closeUpdateModal();
+  // Jendela Detail (kalau masih terbuka di belakang form Update) dirender ulang supaya
+  // langsung menampilkan Status/Keterangan terbaru, bukan tampilan lama sebelum disimpan.
+  if(lastDetailOpen && document.getElementById('detailModal').classList.contains('show')) openDetail(lastDetailOpen.type, lastDetailOpen.key);
+  showToast('✓ Perubahan berhasil tersimpan di Google Drive');
+}
+
+function locateAreaRow(r){
+  const m = String(r.area).match(/^Area\s*\d+/i); if(!m) return null;
+  return {sheet: m[0].replace(/\s+/,' ').trim(), no:r.no, opd:r.opd};
+}
+// Pembaruan tampilan lokal setelah simpan berhasil: nilainya sudah pasti benar (dikonfirmasi server),
+// jadi cukup tandai workbook untuk dihitung ulang saat dibuka di Excel; tampilan sendiri memakai FLAT_OPD_ROWS.
+function applyLocal(loc, newStatus, newKet){ /* tidak ada lagi manipulasi sel di client; server yang menulis */ }
+
+
+function writeToAreaSheet(r, newStatus, newKet){
+  const m = String(r.area).match(/^Area\s*\d+/i);
+  if(!m) return false;
+  const sheetName = m[0].replace(/\s+/,' ').trim();
+  const ws = WB.Sheets[sheetName];
+  if(!ws) return false;
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+  const hIdx = findHeaderRow(rows, ['no','status']);
+  if(hIdx<0) return false;
+  const header = rows[hIdx].map(c=>String(c||'').trim());
+  const cNo=colIndex(header,'no'), cOpd=colIndex(header,'opd'), cStat=colIndex(header,'status'), cKet=colIndex(header,'keterangan');
+  for(let i=hIdx+1;i<rows.length;i++){
+    if(String(rows[i][cNo])===String(r.no) && String(rows[i][cOpd])===String(r.opd)){
+      const rowNum = i+1; // 1-indexed for A1 notation
+      if(newStatus!==null) ws[XLSX.utils.encode_cell({r:i,c:cStat})] = {t:'s', v:newStatus};
+      if(newKet!==null) ws[XLSX.utils.encode_cell({r:i,c:cKet})] = {t:'s', v:newKet};
+      return true;
+    }
+  }
+  return false;
+}
+
+function downloadWorkbook(){
+  WB.Workbook = WB.Workbook || {};
+  WB.Workbook.CalcPr = {fullCalcOnLoad:true};
+  const today = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(WB, `rekapitulasi_opd_pengampu_dashboard_${today}.xlsx`);
+}
+
+function toggleAudit(){ showView('audit'); }
+function renderAudit(){
+  document.getElementById('auditCount').textContent = AUDIT.length;
+  let html = `<tr><th>Waktu</th><th>Pengguna</th><th>Area</th><th>OPD</th><th>No</th><th>Dokumen</th><th>Status Lama → Baru</th><th>Keterangan Lama → Baru</th></tr>`;
+  AUDIT.forEach(a=>{
+    html += `<tr><td>${a.waktu}</td><td>${a.user||''}</td><td class="wrap">${a.area}</td><td class="wrap">${a.opd}</td><td>${a.no}</td><td class="wrap">${a.dok}</td>
+      <td class="wrap">${a.statusLama} → <b>${a.statusBaru}</b></td>
+      <td class="wrap">"${a.ketLama}" → <b>"${a.ketBaru}"</b></td></tr>`;
+  });
+  document.getElementById('tblAudit').innerHTML = html;
+}
+
+function showToast(msg){
+  const t = document.createElement('div');
+  t.textContent = msg;
+  t.className = 'fixed bottom-4 right-4 bg-slate-800 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2500);
+}
+
+// ---------------- PENCARIAN GLOBAL ----------------
+function renderGlobalSearch(){
+  const q = document.getElementById('globalSearch').value.trim().toLowerCase();
+  const box = document.getElementById('globalSearchResults');
+  if(!q){ box.classList.add('hidden'); return; }
+  const hits = FLAT_OPD_ROWS.filter(r=> [r.no,r.dok,r.opd,r.area,r.status,r.ket].some(v=>String(v||'').toLowerCase().includes(q))).slice(0,50);
+  if(!hits.length){ box.innerHTML = '<div class="p-3 text-sm text-slate-500">Tidak ada hasil.</div>'; box.classList.remove('hidden'); return; }
+  box.innerHTML = hits.map(r=>`
+    <div class="p-2 border-b hover:bg-slate-50 cursor-pointer text-sm" onclick="document.getElementById('globalSearchResults').classList.add('hidden'); document.getElementById('globalSearch').value=''; openUpdateForm(${r.idx})">
+      <b>${r.dok}</b> <span class="text-slate-400">(${r.no})</span><br>
+      <span class="text-slate-500">${r.area} · ${r.opd} · ${r.status}</span>
+    </div>`).join('');
+  box.classList.remove('hidden');
+}
+
+// ---------------- EXPORT PDF ----------------
+function openExportModal(){
+  const areas = [...new Set(FLAT_OPD_ROWS.map(r=>r.area))].sort();
+  const opds = [...new Set(FLAT_OPD_ROWS.map(r=>r.opd))].sort();
+  document.getElementById('expArea').innerHTML = '<option value="">Semua Area</option>' + areas.map(a=>`<option value="${a}">${a}</option>`).join('');
+  document.getElementById('expOpd').innerHTML = '<option value="">Semua OPD</option>' + opds.map(o=>`<option value="${o}">${o}</option>`).join('');
+  document.getElementById('expStatus').innerHTML = '<option value="">Semua Status</option>' + STATUS_ORDER.map(s=>`<option value="${s}">${s}</option>`).join('');
+  document.getElementById('exportModal').classList.add('show');
+  previewExport();
+}
+
+function getFilteredRows(){
+  const area = document.getElementById('expArea').value;
+  const opd = document.getElementById('expOpd').value;
+  const status = document.getElementById('expStatus').value;
+  return FLAT_OPD_ROWS.filter(r => (!area||r.area===area) && (!opd||r.opd===opd) && (!status||r.status===status));
+}
+
+function summarize(rows, keyFn){
+  const map = {};
+  rows.forEach(r=>{
+    const k = keyFn(r);
+    if(!map[k]) map[k] = {key:k, total:0, statusCount:{}};
+    map[k].total++;
+    map[k].statusCount[r.status] = (map[k].statusCount[r.status]||0)+1;
+  });
+  return Object.values(map).map(o=>{
+    const diterima = o.statusCount[STATUS_ORDER.find(s=>statusNum(s)===1)] || 0;
+    return {...o, pct: o.total? diterima/o.total*100 : 0};
+  }).sort((a,b)=>b.total-a.total || a.key.localeCompare(b.key));
+}
+
+function exportMeta(){
+  const area = document.getElementById('expArea').value || 'Semua Area';
+  const opd = document.getElementById('expOpd').value || 'Semua OPD';
+  const status = document.getElementById('expStatus').value || 'Semua Status';
+  return {area,opd,status,waktu:new Date().toLocaleString('id-ID')};
+}
+
+function buildExportTables(){
+  const scope = document.getElementById('expScope').value;
+  const rows = getFilteredRows();
+  const includeKet = document.getElementById('expIncludeKet').checked;
+  const tables = [];
+  if(scope==='dashboard' || scope==='rekapArea'){
+    const sum = summarize(rows, r=>r.area);
+    tables.push({
+      title: scope==='dashboard' ? 'DASHBOARD RINGKASAN' : 'REKAPITULASI PER AREA PENILAIAN',
+      head: ['Area','Total',...STATUS_ORDER,'% Selesai'],
+      body: sum.map(s=>[s.key,s.total,...STATUS_ORDER.map(st=>s.statusCount[st]||0), s.pct.toFixed(2)+'%'])
+    });
+  }
+  if(scope==='dashboard' || scope==='rekapOpd'){
+    const sum = summarize(rows, r=>r.opd);
+    const total = rows.length;
+    const totRow = ['TOTAL', total, ...STATUS_ORDER.map(st=>rows.filter(r=>r.status===st).length),
+      (total? (rows.filter(r=>statusNum(r.status)===1).length/total*100):0).toFixed(2)+'%'];
+    tables.push({
+      title: 'REKAPITULASI PER OPD PENGAMPU (diurutkan berdasarkan beban dokumen)',
+      head: ['OPD Pengampu','Total',...STATUS_ORDER,'% Selesai'],
+      body: [...sum.map(s=>[s.key,s.total,...STATUS_ORDER.map(st=>s.statusCount[st]||0), s.pct.toFixed(2)+'%']), totRow]
+    });
+  }
+  if(includeKet || scope==='detail'){
+    tables.push({
+      title: 'DETAIL DOKUMEN',
+      head: ['No','Dokumen Bukti Dukung','Area','OPD Pengampu','Status','Keterangan'],
+      body: rows.slice().sort(cmpNo).map(r=>[r.no,r.dok,r.area,r.opd,r.status,r.ket||''])
+    });
+  }
+  return tables;
+}
+
+function previewExport(){
+  const tables = buildExportTables();
+  const meta = exportMeta();
+  let html = `<div class="text-xs text-slate-500 mb-2">Filter: Area=${meta.area} · OPD=${meta.opd} · Status=${meta.status} · Dibuat: ${meta.waktu}</div>`;
+  tables.forEach(t=>{
+    html += `<div class="font-semibold text-sm mt-2 mb-1">${t.title}</div><table><tr>${t.head.map(h=>`<th>${h}</th>`).join('')}</tr>` +
+      t.body.map(row=>`<tr>${row.map(c=>`<td class="wrap">${c}</td>`).join('')}</tr>`).join('') + `</table>`;
+  });
+  document.getElementById('exportPreview').innerHTML = html;
+}
+
+function doExportPDF(){
+  const { jsPDF } = window.jspdf;
+  const tables = buildExportTables();
+  const meta = exportMeta();
+  const manyCols = tables.some(t=>t.head.length>6);
+  const doc = new jsPDF({orientation: manyCols?'landscape':'portrait', unit:'pt', format:'a4'});
+  let y = 40;
+  doc.setFontSize(14); doc.text('Monitoring Dokumen Area & OPD Pengampu', 40, y); y+=18;
+  doc.setFontSize(9); doc.setTextColor(100);
+  doc.text(`Filter: Area=${meta.area} | OPD=${meta.opd} | Status=${meta.status}`, 40, y); y+=12;
+  doc.text(`Dibuat: ${meta.waktu} | Sumber: file Excel MASTER dimuat di aplikasi`, 40, y); y+=14;
+  doc.setTextColor(0);
+  tables.forEach(t=>{
+    doc.setFontSize(11); doc.text(t.title, 40, y); y+=6;
+    doc.autoTable({ startY: y, head:[t.head], body:t.body, styles:{fontSize:8, cellPadding:3, overflow:'linebreak'},
+      headStyles:{fillColor:[30,41,59]}, margin:{left:40,right:40},
+      didDrawPage: d=>{ doc.setFontSize(8); doc.text('Halaman '+doc.internal.getNumberOfPages(), d.settings.margin.left, doc.internal.pageSize.getHeight()-20); } });
+    y = doc.lastAutoTable.finalY + 20;
+  });
+  const scope = document.getElementById('expScope').value;
+  const area = document.getElementById('expArea').value, opd = document.getElementById('expOpd').value;
+  const today = new Date().toISOString().slice(0,10);
+  let name = scope==='rekapArea' ? 'Rekap_Area' : 'Rekap_OPD_Pengampu';
+  if(area) name += '_'+area.replace(/[^a-z0-9]+/gi,'_');
+  if(opd) name += '_'+opd.replace(/[^a-z0-9]+/gi,'_');
+  doc.save(`${name}_${today}.pdf`);
+}
+
+
+
+// ---------------- GOOGLE APPS SCRIPT (server) ----------------
+let SESSION = {name:'', code:'', role:'operator'};
+let lastModified = null, autoSyncTimer = null;
+
+function gas(fn, ...args){
+  return new Promise((resolve, reject)=>{
+    google.script.run.withSuccessHandler(resolve).withFailureHandler(e=>reject(new Error((e && e.message) || String(e))))[fn](...args);
+  });
+}
+function b64ToU8(b64){ const bin = atob(b64), u = new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i); return u; }
+
+async function doLogin(){
+  const name = document.getElementById('loginName').value.trim();
+  const code = document.getElementById('loginCode').value;
+  const err = document.getElementById('loginErr'); err.textContent = '';
+  if(!name || !code){ err.textContent = 'Isi nama dan kode akses.'; return; }
+  const btn = document.getElementById('loginBtn'); btn.disabled = true; btn.textContent = 'Memeriksa...';
+  try{
+    const r = await gas('login', name, code);
+    if(!r.ok){ err.textContent = r.error; return; }
+    SESSION = {name:r.name, code, role:r.role};
+    try{ sessionStorage.setItem('mon-sess', JSON.stringify({name, code})); }catch(e){}
+    const sel = document.getElementById('roleSelect'); sel.value = r.role; sel.disabled = true;
+    document.getElementById('whoami').textContent = r.name + ' · ' + (r.role==='admin'?'Admin':'Operator');
+    document.getElementById('loginModal').classList.remove('show');
+    await fetchFromDrive();
+  }catch(e){ err.textContent = 'Gagal menghubungi server: ' + e.message; }
+  finally{ btn.disabled = false; btn.textContent = 'Masuk'; }
+}
+
+async function fetchFromDrive(){
+  try{
+    showToast('Memuat data dari Google Drive...');
+    const r = await gas('loadMaster', SESSION.code);
+    if(!r.ok) throw new Error(r.error);
+    loadWorkbook(b64ToU8(r.data));
+    AUDIT = r.audit || []; renderAudit();
+    lastModified = r.modified; source = 'google-drive';
+    document.getElementById('autoSyncWrap').classList.remove('hidden');
+    document.getElementById('syncBanner').classList.add('hidden');
+    const info = document.getElementById('syncInfo');
+    info.textContent = 'File: ' + (r.name||'-') + ' · Terakhir diubah di Drive: ' + new Date(r.modified).toLocaleString('id-ID') + ' · Dimuat: ' + new Date().toLocaleString('id-ID');
+    info.classList.remove('hidden');
+    applyRole();
+  }catch(e){ alert('Gagal memuat data: ' + e.message); }
+}
+function reloadFromSource(){ fetchFromDrive(); }
+async function saveToDrive(){ fetchFromDrive(); }
+
+async function resolveConflict(choice){
+  document.getElementById('conflictModal').classList.remove('show');
+  if(choice==='reload'){ closeUpdateModal(); await fetchFromDrive(); }
+  else if(choice==='overwrite'){ await saveChange(true); }
+}
+
+// Unduh file MASTER asli dari Drive (format dan formula utuh)
+async function downloadWorkbook(){
+  try{
+    const r = await gas('loadMaster', SESSION.code); if(!r.ok) throw new Error(r.error);
+    const blob = new Blob([b64ToU8(r.data)], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = r.name || 'master.xlsx';
+    document.body.appendChild(a); a.click(); a.remove();
+  }catch(e){ alert('Gagal mengunduh: ' + e.message); }
+}
+
+function toggleAutoSync(){
+  const on = document.getElementById('autoSyncChk').checked;
+  if(autoSyncTimer) clearInterval(autoSyncTimer);
+  if(on) autoSyncTimer = setInterval(checkRemoteChange, 60000);
+}
+async function checkRemoteChange(){
+  try{
+    const r = await gas('getModified', SESSION.code);
+    if(r.ok && lastModified && r.modified !== lastModified) document.getElementById('syncBanner').classList.remove('hidden');
+  }catch(e){}
+}
+
+// ---------------- NAVIGASI, TEMA, RINGKASAN DASHBOARD ----------------
+const VIEWS={dashboard:'view-dashboard',area:'tab-area',opd:'tab-opd',audit:'auditPanel'};
+function showView(name){
+  if(name==='audit' && currentRole==='operator') name='dashboard';
+  Object.keys(VIEWS).forEach(k=>document.getElementById(VIEWS[k]).classList.toggle('hidden',k!==name));
+  document.querySelectorAll('.nav-item[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
+  closeSidebar(); window.scrollTo(0,0);
+}
+function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); document.getElementById('overlay').classList.toggle('open'); }
+function closeSidebar(){ document.getElementById('sidebar').classList.remove('open'); document.getElementById('overlay').classList.remove('open'); }
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('themeLabel').textContent = t==='dark' ? 'Mode terang' : 'Mode gelap';
+  try{ localStorage.setItem('mon-theme',t); }catch(e){}
+}
+function toggleTheme(){ applyTheme(document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark'); }
+(function initTheme(){
+  let t=null; try{ t=localStorage.getItem('mon-theme'); }catch(e){}
+  if(!t) t = (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  applyTheme(t);
+})();
+
+function renderDashExtras(){
+  const q = s=>String(s).replace(/'/g,"\\'");
+  document.getElementById('areaBars').innerHTML = AREA_ROWS.slice().sort((a,b)=>a.key.localeCompare(b.key)).map(a=>
+    `<div class="brow" onclick="openDetail('area','${q(a.key)}')"><div class="bl">${a.key}</div><div class="bar"><div style="width:${a.pct.toFixed(1)}%"></div></div><div class="bp">${a.pct.toFixed(1)}%</div></div>`).join('');
+  document.getElementById('topOpd').innerHTML = OPD_SUMMARY.slice().sort((a,b)=>b.total-a.total||String(a.opd).localeCompare(b.opd)).slice(0,5).map(o=>{
+    const seg = STATUS_ORDER.map(s=>{ const v=o.statusCount[s]||0; return v?`<i class="${stKey(s)}" style="width:${(v/o.total*100).toFixed(2)}%" title="${s}: ${v}"></i>`:''; }).join('');
+    return `<div class="brow" onclick="openDetail('opd','${q(o.opd)}')"><div class="bl">${o.opd}</div><div class="stack">${seg}</div><div class="bp">${o.total}</div></div>`;
+  }).join('');
+}
+
+(function autoLogin(){
+  let s = null; try{ s = JSON.parse(sessionStorage.getItem('mon-sess')||'null'); }catch(e){}
+  if(s && s.name && s.code){ document.getElementById('loginName').value = s.name; document.getElementById('loginCode').value = s.code; doLogin(); }
+})();
+</script>
+</body>
+</html>
